@@ -1,0 +1,10 @@
+node_modules
+dist
+coverage
+.git
+.gitignore
+test
+vitest.config.ts
+*.log
+.DS_Store
+config.json

@@ -1,0 +1,27 @@
+{
+  "name": "uc-soundbridge",
+  "version": "0.1.0",
+  "description": "Unfolded Circle Remote Two/3 integration driver for the Roku SoundBridge.",
+  "type": "module",
+  "private": true,
+  "main": "dist/driver.js",
+  "scripts": {
+    "build": "tsc && cp driver.json dist/",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "tsc --noEmit",
+    "start": "node dist/driver.js"
+  },
+  "dependencies": {
+    "@unfoldedcircle/integration-api": "^0.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "license": "Apache-2.0"
+}

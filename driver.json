@@ -1,0 +1,39 @@
+{
+  "driver_id": "uc_soundbridge",
+  "version": "0.1.0",
+  "min_core_api": "1.0.0",
+  "name": {
+    "en": "Roku SoundBridge"
+  },
+  "icon": "uc:integration",
+  "description": {
+    "en": "Roku SoundBridge integration with full IR remote parity and library browsing."
+  },
+  "port": 9080,
+  "developer": {
+    "name": "pgenera",
+    "url": "https://github.com/pgenera/uc-soundbridge"
+  },
+  "home_page": "https://github.com/pgenera/uc-soundbridge",
+  "release_date": "2026-05-09",
+  "setup_data_schema": {
+    "title": { "en": "SoundBridge connection" },
+    "settings": [
+      {
+        "id": "host",
+        "label": { "en": "Hostname or IP" },
+        "field": { "text": { "value": "" } }
+      },
+      {
+        "id": "port",
+        "label": { "en": "RCP port" },
+        "field": { "number": { "value": 5555, "min": 1, "max": 65535 } }
+      },
+      {
+        "id": "name",
+        "label": { "en": "Friendly name" },
+        "field": { "text": { "value": "SoundBridge" } }
+      }
+    ]
+  }
+}
