@@ -52,6 +52,16 @@ echo "==> Staging into $STAGE"
 mkdir -p "$STAGE/bin"
 cp -r dist/. "$STAGE/bin/"
 
+# Custom icon referenced from driver.json (must be ≤ 32 KB per UC docs).
+if [[ -f soundbridge.png ]]; then
+  ICON_SIZE=$(stat -c%s soundbridge.png)
+  if (( ICON_SIZE > 32 * 1024 )); then
+    echo "ERROR: soundbridge.png is $ICON_SIZE bytes, exceeds 32 KB icon limit" >&2
+    exit 1
+  fi
+  cp soundbridge.png "$STAGE/soundbridge.png"
+fi
+
 # driver.json with the on-remote port baked in
 node -e "
   const fs = require('fs');
@@ -83,8 +93,9 @@ node -e "
 
 echo "==> Packing"
 OUT="uc-soundbridge-remote-${VERSION}.tgz"
-( cd "$STAGE" && tar --owner=0 --group=0 -czf "$OLDPWD/$OUT" \
-    driver.json bin node_modules package.json )
+PACK_FILES=(driver.json bin node_modules package.json)
+[[ -f "$STAGE/soundbridge.png" ]] && PACK_FILES+=(soundbridge.png)
+( cd "$STAGE" && tar --owner=0 --group=0 -czf "$OLDPWD/$OUT" "${PACK_FILES[@]}" )
 
 SIZE=$(stat -c%s "$OUT")
 HUMAN=$(numfmt --to=iec-i --suffix=B "$SIZE")

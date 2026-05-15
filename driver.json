@@ -1,11 +1,11 @@
 {
   "driver_id": "uc_soundbridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "min_core_api": "1.0.0",
   "name": {
     "en": "Roku SoundBridge"
   },
-  "icon": "uc:integration",
+  "icon": "custom:soundbridge.png",
   "description": {
     "en": "Roku SoundBridge integration with full IR remote parity and library browsing."
   },

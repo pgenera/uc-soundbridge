@@ -1,9 +1,15 @@
 /**
  * Driver setup flow.
  *
- * Single screen asks for SoundBridge host / port / friendly name. On
- * UserDataResponse: validate (best-effort RCP connect probe), persist
- * to disk, register the entity, return SetupComplete.
+ * State machine:
+ *   1. DriverSetupRequest → mDNS discovery (~4s).
+ *      - 1 found: skip to confirm/edit screen with values pre-filled.
+ *      - 0 found: manual-entry screen (with a notice).
+ *      - 2+ found: dropdown of discovered devices + "Manual entry…".
+ *   2. UserDataResponse with `device`:
+ *      - "manual" sentinel → manual-entry screen.
+ *      - "idx:N" → confirm/edit screen with that device's values.
+ *   3. UserDataResponse with `host` → probe, persist, register, complete.
  */
 
 import { promises as fs } from "node:fs";
@@ -21,6 +27,7 @@ import {
 } from "@unfoldedcircle/integration-api";
 
 import { RcpClient } from "./rcp.js";
+import { discoverSoundBridges, type DiscoveredSoundBridge } from "./discovery.js";
 
 export interface SoundBridgeConfig {
   host: string;
@@ -29,6 +36,7 @@ export interface SoundBridgeConfig {
 }
 
 export const ENTITY_ID = "soundbridge";
+const MANUAL_ID = "__manual__";
 
 export function configPath(configDir: string): string {
   return path.join(configDir, "config.json");
@@ -57,32 +65,88 @@ export async function saveConfig(configDir: string, config: SoundBridgeConfig): 
 export function makeSetupHandler(
   configDir: string,
   onConfigured: (config: SoundBridgeConfig) => Promise<void>,
+  discover: () => Promise<DiscoveredSoundBridge[]> = () => discoverSoundBridges(),
 ): (msg: SetupDriver) => Promise<SetupAction> {
+  // Captured between steps within a single setup session. The wrapper
+  // serializes setup, so a module-level cache is sufficient.
+  let lastDiscovered: DiscoveredSoundBridge[] = [];
+
   return async (msg: SetupDriver) => {
-    if (msg instanceof DriverSetupRequest) return askForDeviceInfo(msg);
+    if (msg instanceof DriverSetupRequest) {
+      lastDiscovered = await discover();
+      return firstStep(lastDiscovered);
+    }
     if (msg instanceof UserDataResponse) {
+      const inputs = msg.inputValues;
+      if (inputs.device !== undefined) {
+        if (inputs.device === MANUAL_ID) {
+          return askForDeviceInfo("", 5555, "SoundBridge", { en: "Manual entry" });
+        }
+        const m = /^idx:(\d+)$/.exec(inputs.device);
+        if (m) {
+          const i = Number(m[1]);
+          const d = lastDiscovered[i];
+          if (d) {
+            return askForDeviceInfo(d.host, d.port, d.name, { en: "Confirm SoundBridge" });
+          }
+        }
+        return new SetupError(ucApi.IntegrationSetupError.Other);
+      }
       return finishSetup(configDir, msg, onConfigured);
     }
     return new SetupError();
   };
 }
 
-function askForDeviceInfo(_req: DriverSetupRequest): SetupAction {
-  return new RequestUserInput({ en: "SoundBridge connection" }, [
+export function firstStep(found: DiscoveredSoundBridge[]): SetupAction {
+  if (found.length === 1 && found[0]) {
+    const d = found[0];
+    return askForDeviceInfo(d.host, d.port, d.name, { en: "Found a SoundBridge — confirm" });
+  }
+  if (found.length === 0) {
+    return askForDeviceInfo("", 5555, "SoundBridge", { en: "No SoundBridges found — enter manually" });
+  }
+  return askPickDevice(found);
+}
+
+function askPickDevice(found: DiscoveredSoundBridge[]): SetupAction {
+  const items: Array<{ id: string; label: { en: string } }> = found.map((d, i) => ({
+    id: `idx:${i}`,
+    label: { en: `${d.name} (${d.host})` },
+  }));
+  items.push({ id: MANUAL_ID, label: { en: "Manual entry…" } });
+
+  const defaultId = items[0]?.id ?? MANUAL_ID;
+  return new RequestUserInput({ en: "Select your SoundBridge" }, [
+    {
+      id: "device",
+      label: { en: "Discovered devices" },
+      field: { dropdown: { value: defaultId, items } },
+    },
+  ]);
+}
+
+function askForDeviceInfo(
+  host: string,
+  port: number,
+  name: string,
+  title: { en: string },
+): SetupAction {
+  return new RequestUserInput(title, [
     {
       id: "host",
       label: { en: "Hostname or IP" },
-      field: { text: { value: "" } },
+      field: { text: { value: host } },
     },
     {
       id: "port",
       label: { en: "RCP port" },
-      field: { number: { value: 5555, min: 1, max: 65535 } },
+      field: { number: { value: port, min: 1, max: 65535 } },
     },
     {
       id: "name",
       label: { en: "Friendly name" },
-      field: { text: { value: "SoundBridge" } },
+      field: { text: { value: name } },
     },
   ]);
 }
