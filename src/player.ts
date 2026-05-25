@@ -12,6 +12,7 @@
 import {
   BrowseMediaItem,
   BrowseResult,
+  IntegrationAPI,
   KnownMediaClass,
   KnownMediaContentType,
   MediaPlayer,
@@ -66,8 +67,9 @@ const FEATURES: MediaPlayerFeatures[] = [
 export class SoundBridgeMediaPlayer extends MediaPlayer {
   private readonly client: RcpClientLike;
   private readonly onClientChange: () => void;
+  private readonly api: IntegrationAPI | null;
 
-  constructor(id: string, name: string, client: RcpClientLike) {
+  constructor(id: string, name: string, client: RcpClientLike, api: IntegrationAPI | null = null) {
     super(id, name, {
       features: FEATURES,
       attributes: deriveAttributes(client),
@@ -77,6 +79,7 @@ export class SoundBridgeMediaPlayer extends MediaPlayer {
       },
     });
     this.client = client;
+    this.api = api;
     this.onClientChange = () => this.syncAttributes();
     client.on("change", this.onClientChange);
     this.setCmdHandler((_entity, cmdId, params) =>
@@ -84,13 +87,24 @@ export class SoundBridgeMediaPlayer extends MediaPlayer {
     );
   }
 
-  /** Sync entity attributes from current RCP client state. */
+  /** Sync entity attributes from current RCP client state.
+   *
+   * Mutating `this.attributes` alone updates the entity object in memory
+   * but does NOT emit a WebSocket `attribute_changed` event — the remote
+   * never learns of the new title/position/etc. The IntegrationAPI's
+   * `updateEntityAttributes()` does both: merges the values and pushes
+   * the change to the remote. We mirror into `this.attributes` so that
+   * any get-state request still sees the latest values, but the push is
+   * what the remote actually subscribes to.
+   */
   private syncAttributes(): void {
     const next = deriveAttributes(this.client);
-    // Reach into the public attributes bag the wrapper exposes.
     for (const [k, v] of Object.entries(next)) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (this.attributes as any)[k] = v;
+    }
+    if (this.api) {
+      this.api.updateEntityAttributes(this.id, next as Record<string, string | number | boolean>);
     }
   }
 

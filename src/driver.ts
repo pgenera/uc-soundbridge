@@ -37,7 +37,7 @@ async function attachConfig(config: SoundBridgeConfig): Promise<void> {
   }
 
   client = new RcpClient({ host: config.host, port: config.port, poll: true });
-  player = new SoundBridgeMediaPlayer(ENTITY_ID, config.name, client);
+  player = new SoundBridgeMediaPlayer(ENTITY_ID, config.name, client, api);
 
   api.clearAvailableEntities();
   api.addAvailableEntity(player);
