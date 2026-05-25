@@ -33,6 +33,7 @@ function fakeClient(overrides: Partial<RcpClientLike> = {}): RcpClientLike {
     duration: 0,
     position: 0,
     positionUpdatedAt: 0,
+    url: "",
     on: vi.fn(),
     off: vi.fn(),
     connect: vi.fn(async () => true),

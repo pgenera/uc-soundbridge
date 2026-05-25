@@ -25,6 +25,7 @@ export interface RcpClientLike {
   duration: number;
   position: number;
   positionUpdatedAt: number;
+  url: string;
   on(event: "change", listener: () => void): unknown;
   off(event: "change", listener: () => void): unknown;
   connect(): Promise<boolean>;

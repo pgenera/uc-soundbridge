@@ -453,6 +453,10 @@ function deriveAttributes(client: RcpClientLike): Record<string, unknown> {
     [MediaPlayerAttributes.MediaAlbum]: client.album,
     [MediaPlayerAttributes.MediaDuration]: client.duration,
     [MediaPlayerAttributes.MediaPosition]: client.position,
+    // The remote uses this to interpolate the progress bar between RCP polls.
+    [MediaPlayerAttributes.MediaPositionUpdatedAt]: client.positionUpdatedAt,
+    [MediaPlayerAttributes.MediaId]: client.url,
+    [MediaPlayerAttributes.MediaType]: "music",
   };
 }
 
