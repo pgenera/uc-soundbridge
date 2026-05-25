@@ -18,6 +18,7 @@ import {
   MediaPlayerAttributes,
   MediaPlayerDeviceClasses,
   MediaPlayerFeatures,
+  MediaPlayerOptions,
   MediaPlayerStates,
   Pagination,
   StatusCodes,
@@ -35,7 +36,7 @@ import {
   type ServerNav,
 } from "./browser.js";
 import type { RcpClientLike } from "./rcp.js";
-import { resolveCommand } from "./ir.js";
+import { resolveCommand, SIMPLE_IR_COMMANDS } from "./ir.js";
 
 const VOLUME_STEP = 5;
 
@@ -58,10 +59,8 @@ const FEATURES: MediaPlayerFeatures[] = [
   MediaPlayerFeatures.PlayMedia,
   MediaPlayerFeatures.BrowseMedia,
   MediaPlayerFeatures.Dpad,
-  MediaPlayerFeatures.Numpad,
   MediaPlayerFeatures.Home,
   MediaPlayerFeatures.Menu,
-  MediaPlayerFeatures.Info,
 ];
 
 export class SoundBridgeMediaPlayer extends MediaPlayer {
@@ -73,6 +72,9 @@ export class SoundBridgeMediaPlayer extends MediaPlayer {
       features: FEATURES,
       attributes: deriveAttributes(client),
       deviceClass: MediaPlayerDeviceClasses.Speaker,
+      options: {
+        [MediaPlayerOptions.SimpleCommands]: [...SIMPLE_IR_COMMANDS],
+      },
     });
     this.client = client;
     this.onClientChange = () => this.syncAttributes();
@@ -106,6 +108,13 @@ export class SoundBridgeMediaPlayer extends MediaPlayer {
       const ir = resolveCommand(cmdId);
       if (ir) {
         await this.client.irDispatch(ir);
+        return StatusCodes.Ok;
+      }
+
+      // Simple commands declared in SIMPLE_IR_COMMANDS are CK_* button IDs
+      // that we pass through to IrDispatchCommand verbatim.
+      if (cmdId.startsWith("CK_")) {
+        await this.client.irDispatch(cmdId);
         return StatusCodes.Ok;
       }
 

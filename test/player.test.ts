@@ -229,19 +229,18 @@ describe("command() — transport, volume, mute", () => {
 });
 
 describe("command() — IR remote parity", () => {
-  it("dpad and home/menu/back/info dispatch IR keys", async () => {
+  it("dpad and home/menu/back dispatch CK_* IR keys", async () => {
     const client = fakeClient();
     const player = makePlayer(client);
     const cases: Array<[string, string]> = [
-      ["cursor_up", "IR_KEY_UP"],
-      ["cursor_down", "IR_KEY_DOWN"],
-      ["cursor_left", "IR_KEY_LEFT"],
-      ["cursor_right", "IR_KEY_RIGHT"],
-      ["cursor_enter", "IR_KEY_OK"],
-      ["home", "IR_KEY_HOME"],
-      ["menu", "IR_KEY_BROWSE"],
-      ["back", "IR_KEY_BACK"],
-      ["info", "IR_KEY_DISPLAY"],
+      ["cursor_up", "CK_NORTH"],
+      ["cursor_down", "CK_SOUTH"],
+      ["cursor_left", "CK_WEST"],
+      ["cursor_right", "CK_EAST"],
+      ["cursor_enter", "CK_SELECT"],
+      ["home", "CK_MENU"],
+      ["menu", "CK_BROWSE"],
+      ["back", "CK_EXIT"],
     ];
     for (const [cmd, key] of cases) {
       await player.command(cmd);
@@ -249,12 +248,12 @@ describe("command() — IR remote parity", () => {
     }
   });
 
-  it("digit_0..9 dispatch IR_KEY_<n>", async () => {
+  it("simple CK_* commands pass through to irDispatch", async () => {
     const client = fakeClient();
     const player = makePlayer(client);
-    for (let n = 0; n < 10; n++) {
-      await player.command(`digit_${n}`);
-      expect(client.irDispatch).toHaveBeenCalledWith(`IR_KEY_${n}`);
+    for (const ck of ["CK_POWER_ON", "CK_PRESET_A1", "CK_BROWSE_ALBUMS", "CK_SHUFFLE"]) {
+      await player.command(ck);
+      expect(client.irDispatch).toHaveBeenCalledWith(ck);
     }
   });
 });
