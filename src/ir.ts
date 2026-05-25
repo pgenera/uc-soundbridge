@@ -39,6 +39,20 @@ export function resolveCommand(cmdId: string): string | null {
  * returns `IrDispatchCommand: OK`.
  */
 export const SIMPLE_IR_COMMANDS: readonly string[] = [
+  // Dpad + the menu/home/back nav buttons. These are also exposed via the
+  // Dpad/Home/Menu features, which makes them appear in the touch-screen
+  // dpad widget, but the *physical-button* mapping picker only shows
+  // commands declared as simple_commands. Listing them here makes the
+  // remote let users map a hardware button to any of these too.
+  "cursor_up",
+  "cursor_down",
+  "cursor_left",
+  "cursor_right",
+  "cursor_enter",
+  "home",
+  "menu",
+  "back",
+
   // Power (distinct from the on/off features which already use these
   // implicitly — exposing them separately lets the user wire a single
   // hard "Power" button on the remote).

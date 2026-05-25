@@ -111,8 +111,9 @@ export class SoundBridgeMediaPlayer extends MediaPlayer {
         return StatusCodes.Ok;
       }
 
-      // Simple commands declared in SIMPLE_IR_COMMANDS are CK_* button IDs
-      // that we pass through to IrDispatchCommand verbatim.
+      // CK_* simple commands declared in SIMPLE_IR_COMMANDS are passed
+      // through to IrDispatchCommand verbatim. (The cursor_*/home/menu/back
+      // entries in SIMPLE_IR_COMMANDS go through resolveCommand() above.)
       if (cmdId.startsWith("CK_")) {
         await this.client.irDispatch(cmdId);
         return StatusCodes.Ok;
