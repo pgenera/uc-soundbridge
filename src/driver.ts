@@ -25,8 +25,40 @@ const driverJson = path.join(__dirname, "..", "driver.json");
 const api = new IntegrationAPI();
 let client: RcpClient | null = null;
 let player: SoundBridgeMediaPlayer | null = null;
+let reconnectTimer: NodeJS.Timeout | null = null;
+let reconnectAttempt = 0;
+
+const RECONNECT_MIN_MS = 2_000;
+const RECONNECT_MAX_MS = 60_000;
+
+function scheduleReconnect(target: RcpClient): void {
+  if (reconnectTimer) return;
+  const delay = Math.min(
+    RECONNECT_MAX_MS,
+    RECONNECT_MIN_MS * 2 ** Math.min(reconnectAttempt, 5),
+  );
+  reconnectAttempt += 1;
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (client !== target) return; // config swapped under us
+    target.connect().catch((err) => {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `RCP reconnect attempt ${reconnectAttempt} failed: ${(err as Error).message}`,
+      );
+      scheduleReconnect(target);
+    });
+  }, delay);
+  reconnectTimer.unref?.();
+}
 
 async function attachConfig(config: SoundBridgeConfig): Promise<void> {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  reconnectAttempt = 0;
+
   if (player) {
     player.detach();
     player = null;
@@ -36,17 +68,27 @@ async function attachConfig(config: SoundBridgeConfig): Promise<void> {
     client = null;
   }
 
-  client = new RcpClient({ host: config.host, port: config.port, poll: true });
-  player = new SoundBridgeMediaPlayer(ENTITY_ID, config.name, client, api);
+  const newClient = new RcpClient({ host: config.host, port: config.port, poll: true });
+  client = newClient;
+  player = new SoundBridgeMediaPlayer(ENTITY_ID, config.name, newClient, api);
+
+  // Swallow socket errors; the close/connect-failure paths drive reconnect.
+  newClient.on("error", (err: Error) => {
+    // eslint-disable-next-line no-console
+    console.warn(`RCP socket error: ${err.message}`);
+  });
+  newClient.on("connect", () => {
+    reconnectAttempt = 0;
+  });
+  newClient.on("disconnect", () => scheduleReconnect(newClient));
 
   api.clearAvailableEntities();
   api.addAvailableEntity(player);
 
-  // Kick off the connection in the background; reconnects happen
-  // automatically inside the RCP client.
-  client.connect().catch((err) => {
+  newClient.connect().catch((err) => {
     // eslint-disable-next-line no-console
-    console.warn("Initial RCP connect failed; will retry:", err);
+    console.warn(`Initial RCP connect failed: ${(err as Error).message}`);
+    scheduleReconnect(newClient);
   });
 }
 

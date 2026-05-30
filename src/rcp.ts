@@ -149,7 +149,20 @@ export class RcpClient extends EventEmitter implements RcpClientLike {
       this.sock = this.connectionFactory();
       this.sock.on("data", (chunk: Buffer | string) => this.onData(chunk));
       this.sock.on("close", () => this.onClose());
-      this.sock.on("error", (err: Error) => this.emit("error", err));
+      this.sock.on("error", (err: Error) => {
+        // If we're still mid-connect, surface immediately rather than
+        // letting awaitBanner spin for the full 5 s timeout.
+        if (this.bannerResolver) {
+          const r = this.bannerResolver;
+          this.bannerResolver = null;
+          r.reject(err);
+        }
+        // Only re-emit if someone is listening; otherwise EventEmitter
+        // throws and crashes the process. Transient socket errors on an
+        // unreachable device are expected, and the close handler will
+        // mark us disconnected for the reconnect loop above.
+        if (this.listenerCount("error") > 0) this.emit("error", err);
+      });
 
       // Wait for the banner to clear.
       await this.awaitBanner();

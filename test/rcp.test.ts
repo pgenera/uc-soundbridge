@@ -236,3 +236,26 @@ describe("RcpClient change events", () => {
     expect(cb).toHaveBeenCalled();
   });
 });
+
+describe("RcpClient socket errors", () => {
+  it("rejects connect() on socket error without throwing an unhandled 'error'", async () => {
+    const { client, sock } = makeClient();
+    // No client.on('error', ...) listener — proves the client doesn't
+    // crash the process when the host is unreachable and nobody is
+    // listening.
+    const connected = client.connect();
+    sock.emit("error", new Error("EHOSTUNREACH"));
+    await expect(connected).rejects.toThrow("EHOSTUNREACH");
+    expect(client.isConnected).toBe(false);
+  });
+
+  it("re-emits socket errors when a listener is attached", async () => {
+    const { client, sock } = makeClient();
+    const errs: Error[] = [];
+    client.on("error", (e: Error) => errs.push(e));
+    const connected = client.connect();
+    sock.emit("error", new Error("EHOSTUNREACH"));
+    await expect(connected).rejects.toThrow();
+    expect(errs).toHaveLength(1);
+  });
+});
