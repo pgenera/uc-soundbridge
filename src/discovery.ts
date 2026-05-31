@@ -5,7 +5,8 @@
  * service instance name is the device's friendly name (e.g. "Living Room").
  */
 
-import { Bonjour, type Service } from "bonjour-service";
+import bonjourPkg, { type Service } from "bonjour-service";
+const { Bonjour } = bonjourPkg;
 
 export interface DiscoveredSoundBridge {
   name: string;
