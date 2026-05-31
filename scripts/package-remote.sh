@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Build an on-remote-installable .tgz for the Unfolded Circle Remote Two/3.
 #
-# Layout per https://unfoldedcircle.github.io/core-api/integration-driver/driver-installation.html:
+# Layout (observed empirically; remote runtime invokes /app/driver.js):
 #
 #   driver.json          metadata (root)
-#   bin/driver.js        entry point (Node.js)
-#   bin/*.js, *.js.map   compiled sources
+#   driver.js            entry point (Node.js)
+#   *.js, *.js.map       compiled sources (flat at root)
 #   node_modules/        production deps only (~2 MB)
 #
 # Constraints enforced by this script:
@@ -49,8 +49,11 @@ echo "==> Compiling TypeScript"
 npm run build > /dev/null
 
 echo "==> Staging into $STAGE"
-mkdir -p "$STAGE/bin"
-cp -r dist/. "$STAGE/bin/"
+# Remote runtime invokes /app/driver.js — keep the compiled JS at the root.
+cp -r dist/. "$STAGE/"
+# dist/ also contains a stale driver.json copy from tsc's resourceful
+# inclusion; we rewrite the canonical one below.
+rm -f "$STAGE/driver.json"
 
 # Custom icon referenced from driver.json (must be ≤ 32 KB per UC docs).
 if [[ -f soundbridge.png ]]; then
@@ -82,7 +85,7 @@ node -e "
     name: src.name,
     version: src.version,
     type: src.type,
-    main: 'bin/driver.js',
+    main: 'driver.js',
     private: true,
     dependencies: src.dependencies,
     engines: src.engines,
@@ -93,9 +96,9 @@ node -e "
 
 echo "==> Packing"
 OUT="uc-soundbridge-remote-${VERSION}.tgz"
-PACK_FILES=(driver.json bin node_modules package.json)
-[[ -f "$STAGE/soundbridge.png" ]] && PACK_FILES+=(soundbridge.png)
-( cd "$STAGE" && tar --owner=0 --group=0 -czf "$OLDPWD/$OUT" "${PACK_FILES[@]}" )
+# Pack everything at the staging root — driver.json, driver.js + compiled
+# siblings, node_modules, package.json, and the icon if present.
+( cd "$STAGE" && tar --owner=0 --group=0 -czf "$OLDPWD/$OUT" . )
 
 SIZE=$(stat -c%s "$OUT")
 HUMAN=$(numfmt --to=iec-i --suffix=B "$SIZE")
