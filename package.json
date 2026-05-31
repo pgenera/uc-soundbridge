@@ -1,6 +1,6 @@
 {
   "name": "uc-soundbridge",
-  "version": "0.3.7",
+  "version": "0.3.8",
   "description": "Unfolded Circle Remote Two/3 integration driver for the Roku SoundBridge.",
   "type": "module",
   "private": true,

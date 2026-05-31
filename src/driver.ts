@@ -6,6 +6,7 @@
  * keeps the RCP socket connected for the lifetime of the process.
  */
 
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -20,7 +21,13 @@ import { SoundBridgeMediaPlayer } from "./player.js";
 import { loadConfig, makeSetupHandler, ENTITY_ID, type SoundBridgeConfig } from "./setup.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const driverJson = path.join(__dirname, "..", "driver.json");
+// On the UC Remote, the installer flattens bin/ into /app, so driver.json
+// sits beside driver.js. In local dev the compiled output lives in dist/
+// while driver.json stays at the repo root one level up. Pick whichever
+// exists.
+const driverJsonSibling = path.join(__dirname, "driver.json");
+const driverJsonParent = path.join(__dirname, "..", "driver.json");
+const driverJson = existsSync(driverJsonSibling) ? driverJsonSibling : driverJsonParent;
 
 const api = new IntegrationAPI();
 let client: RcpClient | null = null;
