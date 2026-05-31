@@ -5,8 +5,19 @@
  * service instance name is the device's friendly name (e.g. "Living Room").
  */
 
-import bonjourPkg, { type Service } from "bonjour-service";
-const { Bonjour } = bonjourPkg;
+import { createRequire } from "node:module";
+import type { Bonjour as BonjourType, Service } from "bonjour-service";
+
+// bonjour-service is CommonJS with `__esModule: true` and both
+// `exports.default` and `exports.Bonjour` set to the same class. Node's
+// ESM-from-CJS interop is inconsistent here:
+//   - `import { Bonjour }` throws at runtime on the Remote (v0.3.7).
+//   - `import Bonjour` trips TS NodeNext because the package's type
+//     defs export Bonjour as a named class but Node returns the class
+//     as the default (v0.3.9).
+// Use `createRequire` to load the CJS module directly and bypass interop.
+const require = createRequire(import.meta.url);
+const { Bonjour } = require("bonjour-service") as { Bonjour: new () => BonjourType };
 
 export interface DiscoveredSoundBridge {
   name: string;
