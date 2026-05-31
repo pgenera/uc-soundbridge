@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Build an on-remote-installable .tgz for the Unfolded Circle Remote Two/3.
 #
-# Layout (observed empirically; remote runtime invokes /app/driver.js):
+# Layout (observed empirically): the remote validates the presence of a
+# `bin/` directory and then extracts its contents to `/app/`. Anything
+# outside `bin/` (other than driver.json) appears to be discarded, so
+# node_modules MUST live inside `bin/`.
 #
-#   driver.json          metadata (root)
-#   driver.js            entry point (Node.js)
-#   *.js, *.js.map       compiled sources (flat at root)
-#   node_modules/        production deps only (~2 MB)
+#   driver.json          metadata (root, kept)
+#   bin/driver.js        entry point (lands at /app/driver.js)
+#   bin/*.js, *.js.map   compiled sources (land at /app/)
+#   bin/node_modules/    production deps (land at /app/node_modules/)
 #
 # Constraints enforced by this script:
 #   - .tgz max 100 MB
@@ -49,11 +52,12 @@ echo "==> Compiling TypeScript"
 npm run build > /dev/null
 
 echo "==> Staging into $STAGE"
-# Remote runtime invokes /app/driver.js — keep the compiled JS at the root.
-cp -r dist/. "$STAGE/"
+# Remote runtime invokes /app/driver.js after extracting bin/* into /app.
+mkdir -p "$STAGE/bin"
+cp -r dist/. "$STAGE/bin/"
 # dist/ also contains a stale driver.json copy from tsc's resourceful
 # inclusion; we rewrite the canonical one below.
-rm -f "$STAGE/driver.json"
+rm -f "$STAGE/bin/driver.json"
 
 # Custom icon referenced from driver.json (must be ≤ 32 KB per UC docs).
 if [[ -f soundbridge.png ]]; then
@@ -90,15 +94,17 @@ node -e "
     dependencies: src.dependencies,
     engines: src.engines,
   };
-  fs.writeFileSync('$STAGE/package.json', JSON.stringify(out, null, 2));
+  fs.writeFileSync('$STAGE/bin/package.json', JSON.stringify(out, null, 2));
 "
-( cd "$STAGE" && npm install --no-audit --no-fund --no-package-lock --silent )
+# Install runtime deps inside bin/ so the resulting node_modules ends up
+# at /app/node_modules/ after the remote extracts bin/ into /app/.
+( cd "$STAGE/bin" && npm install --no-audit --no-fund --no-package-lock --silent )
 
 echo "==> Packing"
 OUT="uc-soundbridge-remote-${VERSION}.tgz"
-# Pack everything at the staging root — driver.json, driver.js + compiled
-# siblings, node_modules, package.json, and the icon if present.
-( cd "$STAGE" && tar --owner=0 --group=0 -czf "$OLDPWD/$OUT" . )
+PACK_FILES=(driver.json bin)
+[[ -f "$STAGE/soundbridge.png" ]] && PACK_FILES+=(soundbridge.png)
+( cd "$STAGE" && tar --owner=0 --group=0 -czf "$OLDPWD/$OUT" "${PACK_FILES[@]}" )
 
 SIZE=$(stat -c%s "$OUT")
 HUMAN=$(numfmt --to=iec-i --suffix=B "$SIZE")
